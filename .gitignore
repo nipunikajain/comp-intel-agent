@@ -1,0 +1,11 @@
+node_modules/
+venv/
+.venv/
+__pycache__/
+.env
+.env.local
+.idea/
+.vscode/
+.DS_Store
+backend/__pycache__/
+backend/venv/
