@@ -31,6 +31,9 @@ Uses Generative AI to digest hundreds of data points and output a structured Str
 ### 3. **Financial Health Dashboard**
 Visualizes key financial ratios and stock performance trends, allowing for "at-a-glance" health checks of competitor firms.
 
+<img width="1381" height="726" alt="Screenshot 2026-02-08 at 5 40 08 PM" src="https://github.com/user-attachments/assets/962a2627-1253-4f9f-bb77-df300be78a2c" />
+
+
 ---
 
 ## 🚀 Getting Started
