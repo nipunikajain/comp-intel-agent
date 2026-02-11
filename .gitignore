@@ -9,3 +9,5 @@ __pycache__/
 .DS_Store
 backend/__pycache__/
 backend/venv/
+frontend/.next/
+frontend/.next

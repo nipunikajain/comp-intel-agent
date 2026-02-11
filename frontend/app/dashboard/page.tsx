@@ -29,7 +29,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DashboardHeader } from "@/components/dashboard-header";
-import { getAnalysis, type MarketReport } from "@/lib/api";
+import { getAnalysis } from "@/lib/api";
+import type { MarketReport } from "@/lib/types";
+import { getMetricValue } from "@/lib/metric-utils";
+import { SourcesInfo } from "@/components/SourcesInfo";
 
 const MOCK_DATA = {
   lastUpdated: "2 minutes ago",
@@ -159,11 +162,15 @@ function DashboardContent() {
     jobId ? "processing" : "idle"
   );
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [geographicScope, setGeographicScope] = useState<"global" | "continent" | "country" | "region">("global");
+  const [geographicLocation, setGeographicLocation] = useState<string | null>(null);
 
   const pollAnalysis = useCallback(async (id: string) => {
     const data = await getAnalysis(id);
     if (data.status === "ready" && data.report) {
       setReport(data.report);
+      setGeographicScope((data.geographic_scope as "global" | "continent" | "country" | "region") ?? "global");
+      setGeographicLocation(data.geographic_location ?? null);
       setAnalysisStatus("ready");
       return true;
     }
@@ -215,6 +222,8 @@ function DashboardContent() {
           "Xero launched new AI features",
           "NetSuite acquired CloudTech",
         ]}
+        geographicScope={geographicScope}
+        geographicLocation={geographicLocation}
       />
 
       <main className="container px-4 py-6">
@@ -284,13 +293,13 @@ function DashboardContent() {
                 <>
                   <KpiCard
                     label="Competitive Win Rate"
-                    value={comparisons.win_rate}
+                    value={getMetricValue(comparisons.win_rate)}
                     trend="from analysis"
                     trendDir="up"
                   />
                   <KpiCard
                     label="Market Share (est.)"
-                    value={comparisons.market_share_estimate}
+                    value={getMetricValue(comparisons.market_share_estimate)}
                     trend="from analysis"
                     trendDir="up"
                   />
@@ -299,7 +308,7 @@ function DashboardContent() {
                       <CardDescription className="text-xs font-medium">Pricing Advantage</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm font-medium text-slate-900">{comparisons.pricing_advantage}</p>
+                      <p className="text-sm font-medium text-slate-900">{getMetricValue(comparisons.pricing_advantage)}</p>
                     </CardContent>
                   </Card>
                   <Card>
@@ -340,6 +349,20 @@ function DashboardContent() {
                 </>
               )}
             </div>
+            {comparisons?.data_sources && comparisons.data_sources.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <SourcesInfo
+                  sources={comparisons.data_sources}
+                  label="AI-estimated • Sources"
+                  compact
+                />
+                {comparisons.confidence_note && (
+                  <span className="max-w-xl truncate" title={comparisons.confidence_note}>
+                    {comparisons.confidence_note}
+                  </span>
+                )}
+              </div>
+            )}
 
             <div className="grid gap-6 lg:grid-cols-2">
               <Card>

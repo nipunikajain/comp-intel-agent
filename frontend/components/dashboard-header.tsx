@@ -4,8 +4,21 @@ import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
+export type GeographicScope = "global" | "continent" | "country" | "region";
+
+function scopeBadgeText(
+  geographicScope?: GeographicScope,
+  geographicLocation?: string | null
+): string {
+  if (geographicScope === "global" || !geographicLocation) return "🌍 Global";
+  if (geographicScope === "country") return `🇨🇦 ${geographicLocation}`;
+  return `📍 ${geographicLocation}`;
+}
+
 interface DashboardHeaderProps {
   tickerItems?: string[];
+  geographicScope?: GeographicScope;
+  geographicLocation?: string | null;
 }
 
 const DEFAULT_TICKER = [
@@ -14,8 +27,13 @@ const DEFAULT_TICKER = [
   "NetSuite acquired CloudTech",
 ];
 
-export function DashboardHeader({ tickerItems = DEFAULT_TICKER }: DashboardHeaderProps) {
+export function DashboardHeader({
+  tickerItems = DEFAULT_TICKER,
+  geographicScope = "global",
+  geographicLocation,
+}: DashboardHeaderProps) {
   const tickerText = tickerItems.length > 0 ? tickerItems.join(" · ") : "No alerts today.";
+  const scopeBadge = scopeBadgeText(geographicScope, geographicLocation);
 
   return (
     <header
@@ -26,6 +44,11 @@ export function DashboardHeader({ tickerItems = DEFAULT_TICKER }: DashboardHeade
     >
       <div className="container flex h-14 items-center justify-between gap-4 px-4">
         <div className="flex min-w-0 flex-1 items-center gap-3">
+          {(geographicScope || geographicLocation) && (
+            <Badge className="shrink-0 bg-white/20 text-white hover:bg-white/30">
+              {scopeBadge}
+            </Badge>
+          )}
           <span className="shrink-0 text-sm font-semibold text-white/90">
             What&apos;s New Today:
           </span>

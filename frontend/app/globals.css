@@ -58,3 +58,37 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* Print: hide nav, header chrome, show clean comparison content */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print\:show {
+    display: block !important;
+  }
+  body {
+    background: white;
+  }
+  /* Ensure tab content that is active is visible */
+  [data-state="inactive"] {
+    display: none !important;
+  }
+  [data-state="active"] {
+    display: block !important;
+  }
+
+  /* Battlecard one-pager: show title, date, all sections */
+  .battlecard-view[data-battlecard-print] {
+    max-width: 100%;
+  }
+  .battlecard-view .print\:block {
+    display: block !important;
+  }
+  .battlecard-view .objection-content {
+    display: block !important;
+  }
+  .battlecard-view .no-print {
+    display: none !important;
+  }
+}

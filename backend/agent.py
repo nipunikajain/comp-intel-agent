@@ -8,6 +8,8 @@ from __future__ import annotations
 import json
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from typing import TypedDict
 from urllib.parse import urlparse
 
@@ -16,7 +18,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 from firecrawl import FirecrawlApp
 
-from schemas import Competitor, PricingTier, NewsItem, SWOTItem
+from schemas import Competitor, PricingTier, NewsItem, SourceAttribution, SWOTItem
 
 
 # --- State (mutable dict for LangGraph) ---
@@ -30,6 +32,7 @@ class ResearcherState(TypedDict, total=False):
     news_url: str | None
     raw_pricing_text: str | None
     raw_news_text: str | None
+    scraped_sources: list[dict]
     competitor: Competitor | None
     error: str | None
 
@@ -114,7 +117,7 @@ def search_node(state: ResearcherState) -> ResearcherState:
 # --- Scrape node (Firecrawl) ---
 
 
-def _strip_html_to_text(html: str, max_chars: int = 20000) -> str:
+def _strip_html_to_text(html: str, max_chars: int = 10000) -> str:
     """Crude HTML strip so we have text for the LLM when markdown is empty."""
     if not html:
         return ""
@@ -151,7 +154,7 @@ def _scrape_one(url: str, api_key: str) -> tuple[str | None, str | None]:
                 return None, "Firecrawl response missing data"
             md = data.get("markdown") or result.get("markdown")
             if md and str(md).strip():
-                return str(md).strip()[:20000], None
+                return str(md).strip()[:10000], None
             html = data.get("html") or data.get("rawHtml") or result.get("html")
             if html and str(html).strip():
                 text = _strip_html_to_text(str(html))
@@ -162,10 +165,10 @@ def _scrape_one(url: str, api_key: str) -> tuple[str | None, str | None]:
         # Object response
         md = getattr(result, "markdown", None)
         if md and str(md).strip():
-            return str(md).strip()[:20000], None
+            return str(md).strip()[:10000], None
         data = getattr(result, "data", None)
         if data and getattr(data, "html", None):
-            text = _strip_html_to_text(str(getattr(data, "html", "")))
+            text = _strip_html_to_text(str(getattr(data, "html", "")), 10000)
             if len(text) > 200:
                 return text, None
         return None, "Firecrawl returned no content"
@@ -183,14 +186,16 @@ def _is_placeholder_text(text: str) -> bool:
 
 def scrape_node(state: ResearcherState) -> ResearcherState:
     """
-    Use Firecrawl to scrape the URLs discovered in search_node.
+    Use Firecrawl to scrape the URLs discovered in search_node (pricing and news in parallel).
     If pricing/news scrapes fail, fall back to scraping the company homepage.
+    Records successfully scraped URLs and timestamp in scraped_sources for attribution.
     """
     api_key = os.getenv("FIRECRAWL_API_KEY")
     out: ResearcherState = {
         **state,
         "raw_pricing_text": None,
         "raw_news_text": None,
+        "scraped_sources": [],
     }
 
     if not api_key:
@@ -200,23 +205,34 @@ def scrape_node(state: ResearcherState) -> ResearcherState:
     company_url = state.get("company_url") or ""
     origin = _origin_from_url(company_url)
     pricing_url = state.get("pricing_url")
-    news_url = state.get("news_url")
+    news_url = state.get("news_url") if state.get("news_url") != pricing_url else None
+    scraped_at = datetime.now(timezone.utc).isoformat()
+    homepage_url_used: str | None = None
 
-    if pricing_url:
-        pricing_content, pricing_err = _scrape_one(pricing_url, api_key)
-        out["raw_pricing_text"] = pricing_content or "(Could not scrape pricing page.)"
-        if pricing_err:
-            out["error"] = (out.get("error") or "") + f" Pricing: {pricing_err}. "
-    else:
-        out["raw_pricing_text"] = "(No pricing URL.)"
+    def do_pricing() -> tuple[str | None, str | None]:
+        if not pricing_url:
+            return "(No pricing URL.)", None
+        content, err = _scrape_one(pricing_url, api_key)
+        return content or "(Could not scrape pricing page.)", err
 
-    if news_url and news_url != pricing_url:
-        news_content, news_err = _scrape_one(news_url, api_key)
-        out["raw_news_text"] = news_content or "(Could not scrape news page.)"
-        if news_err:
-            out["error"] = (out.get("error") or "") + f" News: {news_err}. "
-    else:
-        out["raw_news_text"] = "(No news URL or same as pricing.)"
+    def do_news() -> tuple[str | None, str | None]:
+        if not news_url:
+            return "(No news URL or same as pricing.)", None
+        content, err = _scrape_one(news_url, api_key)
+        return content or "(Could not scrape news page.)", err
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        fut_pricing = executor.submit(do_pricing)
+        fut_news = executor.submit(do_news)
+        pricing_content, pricing_err = fut_pricing.result()
+        news_content, news_err = fut_news.result()
+
+    out["raw_pricing_text"] = pricing_content
+    out["raw_news_text"] = news_content
+    if pricing_err:
+        out["error"] = (out.get("error") or "") + f" Pricing: {pricing_err}. "
+    if news_err:
+        out["error"] = (out.get("error") or "") + f" News: {news_err}. "
 
     # If both are placeholders or very short, scrape homepage so we have something to extract
     if _is_placeholder_text(out["raw_pricing_text"] or "") and _is_placeholder_text(out["raw_news_text"] or ""):
@@ -225,6 +241,7 @@ def scrape_node(state: ResearcherState) -> ResearcherState:
                 continue
             homepage_content, homepage_err = _scrape_one(fallback_url, api_key)
             if homepage_content and len(homepage_content) > 200:
+                homepage_url_used = fallback_url
                 out["raw_pricing_text"] = f"(Pricing page unavailable.)\n\n## Homepage content\n{homepage_content[:10000]}"
                 out["raw_news_text"] = "(News page unavailable.)"
                 if out.get("error"):
@@ -232,6 +249,17 @@ def scrape_node(state: ResearcherState) -> ResearcherState:
                 break
             if homepage_err:
                 out["error"] = (out.get("error") or "") + f" Homepage: {homepage_err}. "
+
+    # Record which URLs were successfully scraped for source attribution
+    scraped_sources: list[dict] = []
+    if homepage_url_used:
+        scraped_sources.append({"url": homepage_url_used, "page_type": "homepage", "scraped_at": scraped_at})
+    else:
+        if pricing_url and not _is_placeholder_text(out["raw_pricing_text"] or ""):
+            scraped_sources.append({"url": pricing_url, "page_type": "pricing_page", "scraped_at": scraped_at})
+        if news_url and news_url != pricing_url and not _is_placeholder_text(out["raw_news_text"] or ""):
+            scraped_sources.append({"url": news_url, "page_type": "news_page", "scraped_at": scraped_at})
+    out["scraped_sources"] = scraped_sources
 
     return out
 
@@ -256,6 +284,7 @@ def _extract_competitor_with_llm(pricing_text: str, news_text: str, company_url:
         combined = f"""## Pricing page content\n{pricing_text[:12000]}\n\n## News/Blog content\n{news_text[:8000]}"""
 
         prompt = f"""You are a competitive intelligence analyst. Extract structured data from the following scraped web content (from {company_url}) into a JSON object that matches this exact schema. Return only valid JSON, no markdown or explanation.
+Be concise. Respond in under 500 tokens.
 
 The content may be from dedicated pricing/news pages OR from a homepage if those were unavailable. Extract whatever you can: pricing mentions, product features, value propositions, and infer a brief SWOT from the tone and claims. Prefer at least 3-5 feature_list items and 1-2 pricing_tiers if any price is mentioned.
 
@@ -287,6 +316,7 @@ Return a single JSON object with keys: pricing_tiers, recent_news, feature_list,
                 name=t.get("name", ""),
                 price=t.get("price"),
                 features=t.get("features") or [],
+                source=None,
             )
             for t in data.get("pricing_tiers") or []
         ]
@@ -296,6 +326,7 @@ Return a single JSON object with keys: pricing_tiers, recent_news, feature_list,
                 summary=n.get("summary"),
                 url=n.get("url"),
                 date=n.get("date"),
+                source_type=None,
             )
             for n in data.get("recent_news") or []
         ]
@@ -307,6 +338,7 @@ Return a single JSON object with keys: pricing_tiers, recent_news, feature_list,
                 weakness=list(swot.get("weakness") or []),
                 opportunity=list(swot.get("opportunity") or []),
                 threat=list(swot.get("threat") or []),
+                source=None,
             )
         else:
             swot_item = None
@@ -329,13 +361,13 @@ Return a single JSON object with keys: pricing_tiers, recent_news, feature_list,
 def extract_node(state: ResearcherState) -> ResearcherState:
     """
     Use OpenAI (ChatOpenAI) to extract the Competitor schema from raw text.
-    Returns updated state with competitor set.
+    Returns updated state with competitor set. Attaches source attributions from scraped_sources.
     """
     pricing_text = state.get("raw_pricing_text") or ""
     news_text = state.get("raw_news_text") or ""
-    company_url = state.get("company_url") or ""
+    scraped_sources = state.get("scraped_sources") or []
 
-    competitor, extract_err = _extract_competitor_with_llm(pricing_text, news_text, company_url)
+    competitor, extract_err = _extract_competitor_with_llm(pricing_text, news_text, state.get("company_url") or "")
     if competitor is None:
         competitor = Competitor(
             pricing_tiers=[],
@@ -343,6 +375,84 @@ def extract_node(state: ResearcherState) -> ResearcherState:
             feature_list=[],
             swot_analysis=None,
         )
+
+    # Build SourceAttribution list from scrape_node's scraped_sources (or fallback from URLs in state)
+    scraped_at = datetime.now(timezone.utc).isoformat()
+    sources: list[SourceAttribution] = []
+    for s in scraped_sources:
+        if isinstance(s, dict) and s.get("url"):
+            sources.append(
+                SourceAttribution(
+                    source_url=str(s["url"]),
+                    source_type=str(s.get("page_type", "website")),
+                    scraped_at=str(s["scraped_at"]) if s.get("scraped_at") else scraped_at,
+                    confidence="high" if not _is_placeholder_text(pricing_text) and not _is_placeholder_text(news_text) else "medium",
+                )
+            )
+    if not sources:
+        pricing_url = state.get("pricing_url")
+        news_url = state.get("news_url")
+        if pricing_url:
+            sources.append(
+                SourceAttribution(
+                    source_url=pricing_url,
+                    source_type="pricing_page",
+                    scraped_at=scraped_at,
+                    confidence="high" if not _is_placeholder_text(pricing_text) else "low",
+                )
+            )
+        if news_url and news_url != pricing_url:
+            sources.append(
+                SourceAttribution(
+                    source_url=news_url,
+                    source_type="news_page",
+                    scraped_at=scraped_at,
+                    confidence="high" if not _is_placeholder_text(news_text) else "low",
+                )
+            )
+
+    # First source that is pricing or homepage for pricing_tiers
+    pricing_source: SourceAttribution | None = None
+    for src in sources:
+        if src.source_type in ("pricing_page", "homepage"):
+            pricing_source = src
+            break
+    if not pricing_source and sources:
+        pricing_source = sources[0]
+
+    # First source for SWOT (any)
+    swot_source = sources[0] if sources else None
+
+    # Attach source to each pricing tier
+    if competitor.pricing_tiers and pricing_source:
+        competitor = competitor.model_copy(
+            update={
+                "pricing_tiers": [
+                    t.model_copy(update={"source": pricing_source}) for t in competitor.pricing_tiers
+                ],
+            }
+        )
+
+    # Attach source to SWOT
+    if competitor.swot_analysis and swot_source:
+        competitor = competitor.model_copy(
+            update={
+                "swot_analysis": competitor.swot_analysis.model_copy(update={"source": swot_source}),
+            }
+        )
+
+    # Mark news items as scraped (from scraped content)
+    if competitor.recent_news:
+        competitor = competitor.model_copy(
+            update={
+                "recent_news": [
+                    n.model_copy(update={"source_type": "scraped"}) for n in competitor.recent_news
+                ],
+            }
+        )
+
+    competitor = competitor.model_copy(update={"sources": sources})
+
     out = {**state, "competitor": competitor}
     if extract_err:
         out["error"] = (state.get("error") or "") + f" Extract: {extract_err}"
