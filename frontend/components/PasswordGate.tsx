@@ -16,6 +16,8 @@ export function PasswordGate({ onSuccess }: PasswordGateProps) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  console.log("API URL at runtime:", process.env.NEXT_PUBLIC_API_URL);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
