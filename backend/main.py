@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -90,48 +90,37 @@ async def lifespan(app: FastAPI):
     yield
 
 
+API_ACCESS_KEY = (os.getenv("API_ACCESS_KEY") or "").strip()
+
+
+async def verify_access(request: Request) -> None:
+    """Require X-Access-Key header when API_ACCESS_KEY is set. /health, /docs, /openapi.json and / are allowed without key."""
+    path = request.url.path
+
+    if path in ["/", "/health", "/openapi.json"] or path.startswith("/docs"):
+        return
+
+    code = (request.headers.get("x-access-key") or "").strip()
+
+    if not API_ACCESS_KEY or code != API_ACCESS_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid access code",
+        )
+
+
 app = FastAPI(
     title="Competitive Intelligence API",
     description="Autonomous market discovery from a single base company URL",
     version="0.1.0",
     lifespan=lifespan,
+    dependencies=[Depends(verify_access)],
 )
 
-# API key gate: when API_ACCESS_KEY is set, require X-Access-Key header on all endpoints except GET /
-API_ACCESS_KEY = (os.getenv("API_ACCESS_KEY") or "").strip()
 
-
-class AccessKeyMiddleware:
-    """Require X-Access-Key header when API_ACCESS_KEY is set. GET / is always allowed."""
-
-    def __init__(self, app):
-        self.app = app
-
-    async def __call__(self, scope, receive, send):
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-        if API_ACCESS_KEY and (scope["path"] != "/" or scope.get("method") != "GET"):
-            headers = dict(
-                (k.decode().lower(), v.decode()) for k, v in scope.get("headers", [])
-            )
-            key = (headers.get("x-access-key") or "").strip()
-            if key != API_ACCESS_KEY:
-                await send(
-                    {
-                        "type": "http.response.start",
-                        "status": 401,
-                        "headers": [[b"content-type", b"application/json"]],
-                    }
-                )
-                await send(
-                    {
-                        "type": "http.response.body",
-                        "body": b'{"detail":"Missing or invalid X-Access-Key"}',
-                    }
-                )
-                return
-        await self.app(scope, receive, send)
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
 
 
 _cors_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
@@ -139,7 +128,6 @@ _frontend_url = (os.getenv("FRONTEND_URL") or "").strip()
 if _frontend_url:
     _cors_origins.append(_frontend_url)
 
-app.add_middleware(AccessKeyMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
