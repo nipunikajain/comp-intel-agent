@@ -123,6 +123,12 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.post("/analyze")
+def analyze() -> dict[str, str]:
+    """Lightweight endpoint for access-code validation (e.g. frontend gate). Accepts JSON body with optional 'query'."""
+    return {"status": "ok"}
+
+
 _cors_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
 _frontend_url = (os.getenv("FRONTEND_URL") or "").strip()
 if _frontend_url:

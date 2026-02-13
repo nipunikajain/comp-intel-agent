@@ -7,11 +7,6 @@ import { setStoredAccessCode } from "@/lib/api";
 
 const SESSION_KEY = "ci_authenticated";
 
-const API_BASE =
-  typeof window !== "undefined"
-    ? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
-    : process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
 export interface PasswordGateProps {
   onSuccess: () => void;
 }
@@ -30,24 +25,31 @@ export function PasswordGate({ onSuccess }: PasswordGateProps) {
     }
     setSubmitting(true);
 
-    console.log("Sending access code header", accessCode);
-    console.log("Request URL", process.env.NEXT_PUBLIC_API_URL ?? API_BASE);
+    const url = `${process.env.NEXT_PUBLIC_API_URL}/analyze`;
+    console.log("Calling backend URL", url);
+    console.log("Sending x-access-code", accessCode);
 
     try {
-      const res = await fetch(`${API_BASE}/monitors`, {
-        method: "GET",
+      const res = await fetch(url, {
+        method: "POST",
         headers: {
+          "Content-Type": "application/json",
           "x-access-code": accessCode,
         },
+        body: JSON.stringify({
+          query: "",
+        }),
       });
 
-      if (res.status === 401) {
-        setError("Invalid access code.");
-        setSubmitting(false);
-        return;
-      }
       if (!res.ok) {
-        setError("Something went wrong. Please try again.");
+        const text = await res.text();
+        if (res.status === 401) {
+          setError("Invalid access code.");
+        } else if (res.status >= 500) {
+          setError("Server error.");
+        } else {
+          setError(text || `Request failed (${res.status}).`);
+        }
         setSubmitting(false);
         return;
       }
@@ -60,7 +62,7 @@ export function PasswordGate({ onSuccess }: PasswordGateProps) {
       }
       onSuccess();
     } catch {
-      setError("Network error. Please try again.");
+      setError("Network error – could not reach backend.");
     } finally {
       setSubmitting(false);
     }
