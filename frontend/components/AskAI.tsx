@@ -63,7 +63,7 @@ function renderAnswerText(text: string): React.ReactNode {
   );
 }
 
-export function AskAI({ jobId, report }: AskAIProps) {
+export function AskAI({ jobId }: AskAIProps) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,11 +74,6 @@ export function AskAI({ jobId, report }: AskAIProps) {
   const [useCase, setUseCase] = useState("");
   const [buyerRole, setBuyerRole] = useState("");
   const [painPoint, setPainPoint] = useState("");
-
-  const competitorNames = useMemo(
-    () => report?.competitors?.map((c) => c.company_name).filter(Boolean) ?? [],
-    [report?.competitors]
-  );
 
   const dealContext: DealContext | null = useMemo(() => {
     const hasAny =

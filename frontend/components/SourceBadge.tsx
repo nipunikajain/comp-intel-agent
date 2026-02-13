@@ -49,8 +49,6 @@ export function SourceBadge({ source, aiEstimated, aiEstimatedOnly, className }:
   const isAi = aiEstimatedOnly || aiEstimated || source?.source_type === "llm_estimate";
   const hasSource = source && (source.source_url || source.source_type);
 
-  if (!hasSource && !aiEstimatedOnly) return null;
-
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
@@ -59,6 +57,8 @@ export function SourceBadge({ source, aiEstimated, aiEstimatedOnly, className }:
     document.addEventListener("click", handleClick, true);
     return () => document.removeEventListener("click", handleClick, true);
   }, [open]);
+
+  if (!hasSource && !aiEstimatedOnly) return null;
 
   if (aiEstimatedOnly && !hasSource) {
     return (

@@ -202,24 +202,24 @@ function DigestSectionBlock({ section }: { section: DigestSection }) {
                   <span className="font-medium text-slate-900">
                     {(item.title as string) || "Update"}
                   </span>
-                  {item.severity && (
+                  {item.severity ? (
                     <span
                       className={`rounded border px-2 py-0.5 text-xs font-medium capitalize ${severityStyle(String(item.severity))}`}
                     >
                       {String(item.severity)}
                     </span>
-                  )}
+                  ) : null}
                 </div>
-                {item.description && (
+                {item.description ? (
                   <p className="mt-1 text-sm text-slate-600">
                     {String(item.description)}
                   </p>
-                )}
-                {item.competitor && (
+                ) : null}
+                {item.competitor ? (
                   <p className="mt-0.5 text-xs text-slate-500">
                     — {String(item.competitor)}
                   </p>
-                )}
+                ) : null}
               </li>
             ))
           )}

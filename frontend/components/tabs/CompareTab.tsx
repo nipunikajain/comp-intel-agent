@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import type { MarketReport, Battlecard } from "@/lib/types";
 import { generateBattlecard } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, X, Loader2, ChevronDown, ChevronUp, Copy } from "lucide-react";
 import { SourceBadge } from "@/components/SourceBadge";

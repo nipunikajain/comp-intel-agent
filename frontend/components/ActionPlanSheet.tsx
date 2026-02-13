@@ -26,7 +26,6 @@ function deriveActionPlan(
   resourcesNeeded: string[];
 } {
   const comp = report.comparisons;
-  const base = report.base_company_data;
   const summary = comp.summary_text ?? "";
 
   const overview =

@@ -31,16 +31,6 @@ const DEFAULT_PROGRESS_STEPS: ProgressStep[] = [
   { step: "Generating insights", status: "pending", timestamp: "" },
 ];
 
-function formatTimestamp(ts: string): string {
-  if (!ts) return "";
-  try {
-    const d = new Date(ts);
-    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  } catch {
-    return ts;
-  }
-}
-
 const SCOPE_OPTIONS: { value: Scope; label: string }[] = [
   { value: "global", label: "Global" },
   { value: "country", label: "Country" },
@@ -148,7 +138,7 @@ export default function Home() {
   const [monitors, setMonitors] = useState<MonitoredCompany[]>([]);
   const [progressSteps, setProgressSteps] = useState<ProgressStep[]>(DEFAULT_PROGRESS_STEPS);
   const [loadingStage, setLoadingStage] = useState(0);
-  const [loadingElapsed, setLoadingElapsed] = useState(0);
+  const [, setLoadingElapsed] = useState(0);
   const [funFactIndex, setFunFactIndex] = useState(0);
   const [analysisScope, setAnalysisScope] = useState<Scope>("global");
   const [analysisRegion, setAnalysisRegion] = useState<string | null>(null);
@@ -311,6 +301,8 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
+    // Intentionally only re-run when urlMonitorId changes; report/status are used only as guards
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlMonitorId]);
 
   return (
@@ -415,7 +407,7 @@ export default function Home() {
                   <p className="text-sm font-medium text-gray-800">
                     {loadingStage === 0
                       ? LOADING_STAGES[0].label(companyNameFromUrl(baseUrl))
-                      : LOADING_STAGES[loadingStage].label()}
+                      : (LOADING_STAGES[loadingStage] as unknown as { label: () => string }).label()}
                   </p>
                 </div>
                 <ul className="mt-6 space-y-3 text-left">

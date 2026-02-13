@@ -250,7 +250,7 @@ export default function AnalysisPage() {
                 <p className="text-sm font-medium text-gray-800">
                   {loadingStage === 0
                     ? LOADING_STAGES[0].label(companyNameFromUrl(baseUrl))
-                    : LOADING_STAGES[loadingStage].label()}
+                    : (LOADING_STAGES[loadingStage] as unknown as { label: () => string }).label()}
                 </p>
               </div>
               <ul className="mt-6 space-y-3 text-left">

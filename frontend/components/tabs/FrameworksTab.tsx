@@ -330,7 +330,7 @@ function FrameworkVisualization({
   }
 }
 
-export function FrameworksTab({ report, jobId }: FrameworksTabProps) {
+export function FrameworksTab({ jobId }: FrameworksTabProps) {
   const [selectedType, setSelectedType] = useState<FrameworkType>("positioning_matrix");
   const [framework, setFramework] = useState<CompetitiveFramework | null>(null);
   const [loading, setLoading] = useState(false);

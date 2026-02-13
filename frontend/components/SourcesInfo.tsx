@@ -98,7 +98,7 @@ export function SourcesInfo({ sources, label = "Sources", compact, className }: 
               <li key={i} className="border-b border-slate-100 pb-2 last:border-0 last:pb-0">
                 <div className="flex flex-wrap items-center gap-1.5 mb-1">
                   {sourceTypeBadge(s.source_type)}
-                  {confidenceBadge(s.confidence)}
+                  {confidenceBadge(s.confidence ?? "medium")}
                 </div>
                 {s.source_url.startsWith("http") ? (
                   <a
