@@ -94,13 +94,13 @@ API_ACCESS_KEY = (os.getenv("API_ACCESS_KEY") or "").strip()
 
 
 async def verify_access(request: Request) -> None:
-    """Require X-Access-Key header when API_ACCESS_KEY is set. /health, /docs, /openapi.json and / are allowed without key."""
+    """Require x-access-code header when API_ACCESS_KEY is set. /health, /docs, /openapi.json and / are allowed without key."""
     path = request.url.path
 
     if path in ["/", "/health", "/openapi.json"] or path.startswith("/docs"):
         return
 
-    code = (request.headers.get("x-access-key") or "").strip()
+    code = (request.headers.get("x-access-code") or "").strip()
 
     if not API_ACCESS_KEY or code != API_ACCESS_KEY:
         raise HTTPException(

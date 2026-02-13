@@ -3,43 +3,66 @@
 import { useState, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { setStoredAccessCode } from "@/lib/api";
 
 const SESSION_KEY = "ci_authenticated";
+
+const API_BASE =
+  typeof window !== "undefined"
+    ? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+    : process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export interface PasswordGateProps {
   onSuccess: () => void;
 }
 
 export function PasswordGate({ onSuccess }: PasswordGateProps) {
-  const [password, setPassword] = useState("");
+  const [accessCode, setAccessCode] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const accessCode =
-    typeof window !== "undefined"
-      ? (process.env.NEXT_PUBLIC_ACCESS_CODE ?? "").trim()
-      : "";
-
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
-    if (!password.trim()) {
+    if (!accessCode.trim()) {
       setError("Please enter an access code.");
       return;
     }
     setSubmitting(true);
-    const matches =
-      accessCode !== "" && password.trim() === accessCode;
-    setSubmitting(false);
-    if (matches) {
+
+    console.log("Sending access code header", accessCode);
+    console.log("Request URL", process.env.NEXT_PUBLIC_API_URL ?? API_BASE);
+
+    try {
+      const res = await fetch(`${API_BASE}/monitors`, {
+        method: "GET",
+        headers: {
+          "x-access-code": accessCode,
+        },
+      });
+
+      if (res.status === 401) {
+        setError("Invalid access code.");
+        setSubmitting(false);
+        return;
+      }
+      if (!res.ok) {
+        setError("Something went wrong. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+
       try {
         sessionStorage.setItem(SESSION_KEY, "true");
+        setStoredAccessCode(accessCode);
       } catch {
         // ignore
       }
       onSuccess();
-    } else {
-      setError("Invalid access code.");
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -56,9 +79,9 @@ export function PasswordGate({ onSuccess }: PasswordGateProps) {
           <Input
             type="password"
             placeholder="Access code"
-            value={password}
+            value={accessCode}
             onChange={(e) => {
-              setPassword(e.target.value);
+              setAccessCode(e.target.value);
               setError("");
             }}
             autoFocus

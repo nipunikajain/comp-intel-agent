@@ -1,7 +1,7 @@
 /**
  * API client for Competitive Intelligence backend.
  * All requests go to NEXT_PUBLIC_API_URL or http://localhost:8000.
- * When NEXT_PUBLIC_API_ACCESS_KEY is set, all requests include X-Access-Key.
+ * Access code is sent in the x-access-code header (from gate session or NEXT_PUBLIC_API_ACCESS_KEY).
  */
 
 import type {
@@ -17,6 +17,8 @@ import type {
   MonitoredCompany,
 } from "./types";
 
+const STORED_ACCESS_CODE_KEY = "ci_access_code";
+
 const API_BASE =
   typeof window !== "undefined"
     ? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
@@ -25,10 +27,34 @@ const API_BASE =
 const API_ACCESS_KEY =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_ACCESS_KEY) || "";
 
-/** Headers to send with every API request (e.g. X-Access-Key when gate is enabled). */
+/** Store the access code after successful gate verification (used by PasswordGate). */
+export function setStoredAccessCode(code: string): void {
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.setItem(STORED_ACCESS_CODE_KEY, code);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function getAccessCode(): string {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = sessionStorage.getItem(STORED_ACCESS_CODE_KEY);
+      if (stored != null && stored !== "") return stored;
+    } catch {
+      // ignore
+    }
+  }
+  return API_ACCESS_KEY;
+}
+
+/** Headers to send with every API request (x-access-code from stored value or env). */
 function apiHeaders(extra: HeadersInit = {}): HeadersInit {
   const base: Record<string, string> = {};
-  if (API_ACCESS_KEY) base["X-Access-Key"] = API_ACCESS_KEY;
+  const code = getAccessCode();
+  if (code) base["x-access-code"] = code;
   return { ...base, ...(extra as Record<string, string>) };
 }
 
