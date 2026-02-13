@@ -129,18 +129,14 @@ def analyze() -> dict[str, str]:
     return {"status": "ok"}
 
 
-_cors_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
-_frontend_url = (os.getenv("FRONTEND_URL") or "").strip()
-if _frontend_url:
-    _cors_origins.append(_frontend_url)
+FRONTEND_URL = os.getenv("FRONTEND_URL")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
+    allow_origins=[FRONTEND_URL] if FRONTEND_URL else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
 )
 
 
