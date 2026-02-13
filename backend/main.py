@@ -117,6 +117,24 @@ app = FastAPI(
     dependencies=[Depends(verify_access)],
 )
 
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+
+origins = []
+if FRONTEND_URL:
+    origins.append(FRONTEND_URL)
+
+# TEMPORARY: also allow everything so we can verify CORS is working
+# (we can tighten this later)
+origins.append("*")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.get("/health")
 def health() -> dict[str, str]:
@@ -127,17 +145,6 @@ def health() -> dict[str, str]:
 def analyze() -> dict[str, str]:
     """Lightweight endpoint for access-code validation (e.g. frontend gate). Accepts JSON body with optional 'query'."""
     return {"status": "ok"}
-
-
-FRONTEND_URL = os.getenv("FRONTEND_URL")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[FRONTEND_URL] if FRONTEND_URL else ["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 @app.get("/")
