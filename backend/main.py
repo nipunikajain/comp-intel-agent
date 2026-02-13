@@ -912,6 +912,19 @@ def _export_pricing_md(report: MarketReport) -> str:
     return "".join(md)
 
 
+def _export_all_md(report: MarketReport) -> str:
+    """Master export: executive + market + pricing in one document."""
+    parts = [
+        "# Executive Summary\n\n",
+        _export_executive_md(report),
+        "\n\n---\n\n# Market\n\n",
+        _export_market_md(report),
+        "\n\n---\n\n# Pricing\n\n",
+        _export_pricing_md(report),
+    ]
+    return "".join(parts)
+
+
 def _export_compare_md(report: MarketReport, competitor_name: str) -> str:
     """Compare tab: feature comparison table for one competitor."""
     base = report.base_company_data
@@ -1059,8 +1072,8 @@ async def export_analysis(
     fmt = (format or "pdf").strip().lower()
     if fmt not in ("pdf", "markdown", "html"):
         raise HTTPException(status_code=400, detail="format must be pdf, markdown, or html")
-    if tab not in ("executive", "market", "pricing", "compare", "battlecard"):
-        raise HTTPException(status_code=400, detail="tab must be executive, market, pricing, compare, or battlecard")
+    if tab not in ("executive", "market", "pricing", "compare", "battlecard", "all"):
+        raise HTTPException(status_code=400, detail="tab must be executive, market, pricing, compare, battlecard, or all")
 
     comp_name = (competitor_name or "").strip() or None
     if tab in ("compare", "battlecard") and not comp_name and report.competitors:
@@ -1080,6 +1093,8 @@ async def export_analysis(
         body_md = _export_market_md(report)
     elif tab == "pricing":
         body_md = _export_pricing_md(report)
+    elif tab == "all":
+        body_md = _export_all_md(report)
     else:
         body_md = _export_executive_md(report)
 

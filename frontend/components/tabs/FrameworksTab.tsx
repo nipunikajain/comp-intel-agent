@@ -356,25 +356,22 @@ export function FrameworksTab({ jobId }: FrameworksTabProps) {
 
   const handleExport = useCallback(() => {
     if (!framework) return;
-    const blob = new Blob(
-      [
-        JSON.stringify(
-          {
-            ...framework,
-            exported_at: new Date().toISOString(),
-          },
-          null,
-          2
-        ),
-      ],
-      { type: "application/json" }
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `framework-${framework.framework_type}-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const escapeHtml = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const title = framework.title ?? FRAMEWORK_LABELS[framework.framework_type as FrameworkType] ?? "Framework";
+    const desc = framework.description ?? "";
+    const dataStr = JSON.stringify(framework.data ?? {}, null, 2);
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:2rem auto;padding:0 1rem;} h1{font-size:1.5rem;} pre{background:#f5f5f5;padding:1rem;overflow:auto;border-radius:8px;font-size:12px;}</style></head>
+<body><h1>${escapeHtml(title)}</h1>${desc ? `<p>${escapeHtml(desc)}</p>` : ""}
+<p><strong>Exported:</strong> ${new Date().toLocaleString()}</p>
+<pre>${escapeHtml(dataStr)}</pre></body></html>`;
+    const w = window.open("", "_blank");
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+      setTimeout(() => w.print(), 100);
+    }
   }, [framework]);
 
   return (

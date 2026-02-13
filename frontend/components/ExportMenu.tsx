@@ -68,7 +68,7 @@ export function ExportMenu({
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `competitive-intel-${exportTab}.md`;
+        a.download = exportTab === "all" ? "competitive-intel-all-tabs.md" : `competitive-intel-${exportTab}.md`;
         a.click();
         URL.revokeObjectURL(url);
       } else {
@@ -88,14 +88,15 @@ export function ExportMenu({
     }
   };
 
-  const handleCopy = async () => {
+  const handleCopy = async (useAllTabs?: boolean) => {
     if (!jobId) return;
     setLoading("copy");
     try {
-      const blob = await exportAnalysis(jobId, "markdown", apiTab, isCompare ? competitorName : undefined);
+      const tab = useAllTabs ? "all" : apiTab;
+      const blob = await exportAnalysis(jobId, "markdown", tab, isCompare && !useAllTabs ? competitorName : undefined);
       const text = await blob.text();
       await navigator.clipboard.writeText(text);
-      setToast("Copied to clipboard — paste into Slack, Notion, or Google Docs");
+      setToast(useAllTabs ? "All tabs copied to clipboard" : "Copied to clipboard — paste into Slack, Notion, or Google Docs");
     } catch (err) {
       setToast(err instanceof Error ? err.message : "Copy failed");
     } finally {
@@ -122,7 +123,7 @@ export function ExportMenu({
         <ChevronDown className="ml-1.5 h-4 w-4 opacity-70" />
       </Button>
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 min-w-[220px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-1 min-w-[260px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
           <button
             type="button"
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
@@ -144,11 +145,39 @@ export function ExportMenu({
           <button
             type="button"
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-            onClick={handleCopy}
+            onClick={() => handleCopy(false)}
             disabled={loadingAny}
           >
             <Copy className="h-4 w-4 text-gray-500" />
             Copy as Formatted Text
+          </button>
+          <p className="mt-1 border-t border-gray-100 px-3 py-1.5 text-xs font-medium text-gray-500">Master export (all tabs)</p>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+            onClick={() => handleExport("pdf", "all")}
+            disabled={loadingAny}
+          >
+            <FileText className="h-4 w-4 text-gray-500" />
+            Export all tabs as PDF
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+            onClick={() => handleExport("markdown", "all")}
+            disabled={loadingAny}
+          >
+            <Download className="h-4 w-4 text-gray-500" />
+            Export all tabs as Markdown
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+            onClick={() => handleCopy(true)}
+            disabled={loadingAny}
+          >
+            <Copy className="h-4 w-4 text-gray-500" />
+            Copy all tabs as Formatted Text
           </button>
           {isCompare && (
             <button

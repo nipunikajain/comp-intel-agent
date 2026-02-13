@@ -40,6 +40,13 @@ function computeFeatureParity(report: MarketReport): string {
   return `${pct}%`;
 }
 
+/** Display value for KPI: show value if present and not a dash; otherwise caller shows "No data". */
+function displayValue(val: string | undefined): string {
+  const s = (val ?? "").trim();
+  if (!s || s === "—" || s === "-") return "";
+  return s;
+}
+
 /** Parse a numeric value from strings like "68%" or "2x" for comparison */
 function parseKpiNumber(s: string | undefined): number | null {
   if (!s || typeof s !== "string") return null;
@@ -280,7 +287,9 @@ export function ExecutiveTab({
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
+                <p className={`text-2xl font-bold ${displayValue(kpi.value) ? "text-gray-900" : "text-gray-400"}`}>
+                  {displayValue(kpi.value) || "No data"}
+                </p>
                 {kpi.vsPrevious && tooltipText ? (
                   <span
                     className="mt-1 inline-flex items-center gap-1 text-xs"
@@ -296,9 +305,7 @@ export function ExecutiveTab({
                       {kpi.vsPrevious.improved ? "↑" : "↓"} from {kpi.vsPrevious.from}
                     </span>
                   </span>
-                ) : (
-                  <Badge className="mt-1 bg-gray-100 text-xs text-gray-600">—</Badge>
-                )}
+                ) : null}
               </CardContent>
             </Card>
           ))}

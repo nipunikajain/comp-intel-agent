@@ -214,16 +214,23 @@ function DashboardContent() {
     MOCK_DATA;
   const comparisons = report?.comparisons;
 
+  const [activeTab, setActiveTab] = useState("Executive");
+  const tickerItems = [
+    "QuickBooks announced 40% price increase for Desktop Pro",
+    "Xero launched new AI features",
+    "NetSuite acquired CloudTech",
+  ];
+  const totalAlerts = alerts.critical + alerts.medium + alerts.monitoring + alerts.opportunities;
+
   return (
     <div className="min-h-screen bg-slate-50">
       <DashboardHeader
-        tickerItems={[
-          "QuickBooks announced 40% price increase for Desktop Pro",
-          "Xero launched new AI features",
-          "NetSuite acquired CloudTech",
-        ]}
+        tickerItems={tickerItems}
         geographicScope={geographicScope}
         geographicLocation={geographicLocation}
+        alertCount={totalAlerts}
+        alertItems={tickerItems}
+        onAlertsClick={() => setActiveTab("Alerts")}
       />
 
       <main className="container px-4 py-6">
@@ -258,7 +265,7 @@ function DashboardContent() {
           </Button>
         </div>
 
-        <Tabs defaultValue="Executive" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-4 h-10 w-full justify-start overflow-x-auto rounded-lg border bg-white p-1">
             <TabsTrigger value="Executive" className="gap-1.5 px-4">
               <LayoutDashboard className="h-4 w-4" />

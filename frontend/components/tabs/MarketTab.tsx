@@ -228,7 +228,6 @@ export function MarketTab({ report, onAddNote }: MarketTabProps) {
                 <p className="text-sm text-gray-600">
                   Leader: {comps[i]?.company_name ?? base.company_name ?? "—"}
                 </p>
-                <p className="text-xs text-gray-500">Share: — % · Growth: —</p>
               </CardContent>
             </Card>
           ))}

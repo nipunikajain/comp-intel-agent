@@ -364,9 +364,15 @@ export function Dashboard({
             <Badge className="bg-emerald-600 text-white hover:bg-emerald-700">
               Live Data
             </Badge>
-            <Badge variant="secondary" className="font-medium">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 font-medium"
+              onClick={handleSwitchToAlerts}
+              title="View alerts"
+            >
               Alerts {alertsCount > 0 ? `(${alertsCount})` : ""}
-            </Badge>
+            </Button>
             {jobId && (
               <Button
                 variant="outline"
