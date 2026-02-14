@@ -36,6 +36,10 @@ Visualizes key financial ratios and stock performance trends, allowing for "at-a
 
 ---
 
+For a **detailed app description and technical architecture** (data flow, backend/frontend structure, APIs, agents, deployment), see **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
